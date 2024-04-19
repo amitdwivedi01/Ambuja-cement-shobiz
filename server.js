@@ -4,6 +4,7 @@ const multer = require("multer");
 const cors = require("cors");
 const cloudinary = require("cloudinary").v2;
 require('dotenv').config();
+const AWS = require('aws-sdk');
 
 const app = express();
 app.use(express.json());
@@ -35,19 +36,34 @@ const User = mongoose.model("User", userSchema);
 const storage = multer.memoryStorage();
 const upload = multer({ storage: storage });
 
-// Cloudinary configuration
-cloudinary.config({
-  cloud_name: process.env.cloud_name,
-  api_key: process.env.api_key,
-  api_secret: process.env.api_secret,
+AWS.config.update({
+  accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+  secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
 });
+
+const s3 = new AWS.S3();
+
+// Cloudinary configuration
+// cloudinary.config({
+//   cloud_name: process.env.cloud_name,
+//   api_key: process.env.api_key,
+//   api_secret: process.env.api_secret,
+// });
 
 app.post("/api/users", async (req, res) => {
   try {
     const { name, region, email } = req.body;
+
+    // Check if email already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(201).json({ error: "Email already exists", existingUser});
+    }
+
+    // Create a new user
     const user = new User({ name, region, email, quizScore: {}, snapScore: 0, videoUrl: "", imageUrl: "" });
     await user.save();
-    res.status(201).json(user);
+    res.status(200).json(user);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -66,19 +82,21 @@ app.post("/api/users/videos/:userId", upload.single("video"), async (req, res) =
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    cloudinary.uploader.upload_stream({ resource_type: "video" }, async (error, result) => {
-      if (error) {
-        console.error("Error uploading video:", error);
-        res.status(500).json({ error: "Error uploading video" });
-      } else {
-        console.log("Video uploaded successfully:", result);
-        // Save the video URL to the user record in MongoDB
-        const videoUrl = result.secure_url;
-        // Update the user's videoUrl field
-        await User.findByIdAndUpdate(userId, { videoUrl });
-        res.status(200).json({ message: "Video uploaded successfully", videoUrl });
-      }
-    }).end(req.file.buffer);
+    // Upload video to S3 bucket
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: `videos/${userId}/${req.file.originalname}`,
+      Body: req.file.buffer
+    };
+
+    const uploadResult = await s3.upload(uploadParams).promise();
+
+    // Save the video URL to the user record in MongoDB
+    const videoUrl = uploadResult.Location;
+
+    // Update the user's videoUrl field
+    await User.findByIdAndUpdate(userId, { videoUrl });
+    res.status(200).json({ message: "Video uploaded successfully", videoUrl });
   } catch (error) {
     console.error("Error uploading video:", error.message);
     res.status(500).json({ error: "Error uploading video" });
@@ -98,23 +116,22 @@ app.post("/api/users/images/:userId", upload.single("image"), async (req, res) =
       return res.status(400).json({ error: "No file uploaded" });
     }
 
-    // Convert image buffer to base64
-    const imageBase64 = req.file.buffer.toString("base64");
+    // Upload image to S3 bucket
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: `images/${userId}/${req.file.originalname}`,
+      Body: req.file.buffer
+    };
 
-    // Upload the base64 image to cloudinary
-    cloudinary.uploader.upload(`data:${req.file.mimetype};base64,${imageBase64}`, async (error, result) => {
-      if (error) {
-        console.error("Error uploading image:", error);
-        res.status(500).json({ error: "Error uploading image" });
-      } else {
-        console.log("Image uploaded successfully:", result);
-        // Save the image URL to the user record in MongoDB
-        const imageUrl = result.secure_url;
-        // Update the user's imageUrl field
-        await User.findByIdAndUpdate(userId, { imageUrl });
-        res.status(200).json({ message: "Image uploaded successfully", imageUrl });
-      }
-    });
+    const uploadResult = await s3.upload(uploadParams).promise();
+
+    // Save the image URL to the user record in MongoDB
+    const imageUrl = uploadResult.Location;
+    console.log(imageUrl,"imageurl")
+
+    // Update the user's imageUrl field
+    await User.findByIdAndUpdate(userId, { imageUrl });
+    res.status(200).json({ message: "Image uploaded successfully", imageUrl });
   } catch (error) {
     console.error("Error uploading image:", error.message);
     res.status(500).json({ error: "Error uploading image" });
