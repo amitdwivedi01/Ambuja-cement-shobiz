@@ -20,7 +20,7 @@ mongoose.connect(process.env.MONGO_URI, {
 const userSchema = new mongoose.Schema({
   name: String,
   region: String,
-  email: String,
+  number: String,
   quizScore: {
     score: Number,
     timeTaken: Number // Assuming time taken is in seconds
@@ -52,16 +52,16 @@ const s3 = new AWS.S3();
 
 app.post("/api/users", async (req, res) => {
   try {
-    const { name, region, email } = req.body;
+    const { name, region, number } = req.body;
 
-    // Check if email already exists
-    const existingUser = await User.findOne({ email });
+    // Check if number already exists
+    const existingUser = await User.findOne({ number });
     if (existingUser) {
-      return res.status(201).json({ error: "Email already exists", existingUser});
+      return res.status(201).json({ error: "number already exists", existingUser});
     }
 
     // Create a new user
-    const user = new User({ name, region, email, quizScore: {}, snapScore: 0, videoUrl: "", imageUrl: "" });
+    const user = new User({ name, region, number, quizScore: {}, snapScore: 0, videoUrl: "", imageUrl: "" });
     await user.save();
     res.status(200).json(user);
   } catch (error) {
