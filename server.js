@@ -61,7 +61,7 @@ app.post("/api/users", async (req, res) => {
     }
 
     // Create a new user
-    const user = new User({ name, region, number, quizScore: {}, snapScore: 0, videoUrl: "", imageUrl: "" });
+    const user = new User({ name, region, number, quizScore: {score: 0,timeTaken: 0}, snapScore: 0, videoUrl: "", imageUrl: "" });
     await user.save();
     res.status(200).json(user);
   } catch (error) {
@@ -142,6 +142,7 @@ app.put("/api/users/quizscore/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;    
     const { score, timeTaken } = req.body;
+    console.log(req.body,"body")
     // Find the user by ID
     const user = await User.findById(userId);
     if (!user) {
