@@ -23,7 +23,8 @@ const userSchema = new mongoose.Schema({
   number: String,
   quizScore: {
     score: Number,
-    timeTaken: Number // Assuming time taken is in seconds
+    timeTaken: Number, // Assuming time taken is in seconds
+    userComment:String
   },
   snapScore: Number,
   videoUrl: String,
@@ -61,7 +62,7 @@ app.post("/api/users", async (req, res) => {
     }
 
     // Create a new user
-    const user = new User({ name, region, number, quizScore: {score: 0,timeTaken: 0}, snapScore: 0, videoUrl: "", imageUrl: "" });
+    const user = new User({ name, region, number, quizScore: {score: 0,timeTaken: 0,userComment:""}, snapScore: 0, videoUrl: "", imageUrl: "" });
     await user.save();
     res.status(200).json(user);
   } catch (error) {
@@ -141,7 +142,7 @@ app.post("/api/users/images/:userId", upload.single("image"), async (req, res) =
 app.put("/api/users/quizscore/:userId", async (req, res) => {
   try {
     const userId = req.params.userId;    
-    const { score, timeTaken } = req.body;
+    const { score, timeTaken, userComment } = req.body;
     console.log(req.body,"body")
     // Find the user by ID
     const user = await User.findById(userId);
@@ -152,6 +153,7 @@ app.put("/api/users/quizscore/:userId", async (req, res) => {
     // Update the user's quiz score
     user.quizScore.score = score;
     user.quizScore.timeTaken = timeTaken;
+    user.quizScore.userComment = userComment;
 
     await user.save();
     console.log(user)
