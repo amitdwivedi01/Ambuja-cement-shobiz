@@ -5,10 +5,14 @@ const cors = require("cors");
 const cloudinary = require("cloudinary").v2;
 require('dotenv').config();
 const AWS = require('aws-sdk');
+const bodyParser = require('body-parser');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
+
+app.use(bodyParser.json({ limit: '200mb' }));
+app.use(bodyParser.urlencoded({ limit: '200mb', extended: true }));
 
 // MongoDB connection
 mongoose.connect(process.env.MONGO_URI, {
