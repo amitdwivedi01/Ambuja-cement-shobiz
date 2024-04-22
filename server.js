@@ -29,6 +29,7 @@ const userSchema = new mongoose.Schema({
   snapScore: Number,
   videoUrl: String,
   imageUrl: String,
+  imageorvideo: String,
 });
 
 const User = mongoose.model("User", userSchema);
@@ -138,6 +139,48 @@ app.post("/api/users/images/:userId", upload.single("image"), async (req, res) =
     res.status(500).json({ error: "Error uploading image" });
   }
 });
+
+app.post("/api/users/upload/:userId", upload.single("file"), async (req, res) => {
+  try {
+    const userId = req.params.userId;
+    // Check if the user exists
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    if (!req.file) {
+      return res.status(400).json({ error: "No file uploaded" });
+    }
+
+    // Determine if the uploaded file is an image or a video based on its MIME type
+    const fileType = req.file.mimetype.startsWith("image/") ? "image" : req.file.mimetype.startsWith("video/") ? "video" : null;
+    if (!fileType) {
+      return res.status(400).json({ error: "Invalid file type" });
+    }
+
+    // Upload file to S3 bucket
+    const uploadParams = {
+      Bucket: process.env.AWS_S3_BUCKET_NAME,
+      Key: `${fileType}s/${userId}/${req.file.originalname}`,
+      Body: req.file.buffer
+    };
+
+    const uploadResult = await s3.upload(uploadParams).promise();
+
+    // Save the file URL to the user record in MongoDB
+    const fileUrl = uploadResult.Location;
+    user.imageorvideo = fileUrl;
+
+    await user.save()
+    console.log(user)
+    res.status(200).json({ message: "File uploaded successfully", fileUrl });
+  } catch (error) {
+    console.error("Error uploading file:", error.message);
+    res.status(500).json({ error: "Error uploading file" });
+  }
+});
+
 
 app.put("/api/users/quizscore/:userId", async (req, res) => {
   try {
