@@ -36,7 +36,13 @@ const User = mongoose.model("User", userSchema);
 
 // Multer configuration for file upload
 const storage = multer.memoryStorage();
-const upload = multer({ storage: storage });
+const upload = multer({ 
+  storage: storage,
+  limits: {
+    fileSize: 100 * 1024 * 1024, // 100MB maximum file size
+    files: 1 // Limit to one file per request
+  }
+});
 
 AWS.config.update({
   accessKeyId: process.env.AWS_ACCESS_KEY_ID,
