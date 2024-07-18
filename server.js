@@ -62,6 +62,10 @@ const s3 = new AWS.S3();
 //   api_secret: process.env.api_secret,
 // });
 
+app.get("/",(req,res)=>{
+  return "server is Running...."
+})
+
 app.post("/api/users", async (req, res) => {
   try {
     const { name, region, number } = req.body;
